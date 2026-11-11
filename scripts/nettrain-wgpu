@@ -1,0 +1,41 @@
+#!/bin/zsh
+# nettrain-wgpu — run nettrain on the wgpu device against the v0 dataset.
+#
+# Installed by gmklabs into the lab prefix; resolves nettrain from PATH.
+#
+# Usage:
+#   nettrain-wgpu [--steps <n>]
+#
+# The data root is resolved from GOMOKU_DATA, falling back to ./data
+# relative to the current working directory (the lab). --steps
+# defaults to 5000.
+
+set -euo pipefail
+
+steps=5000
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --steps)
+      [[ $# -ge 2 ]] || { echo "error: --steps needs a value" >&2; exit 1; }
+      steps="$2"
+      shift 2
+      ;;
+    *)
+      echo "error: unknown argument '$1' (usage: nettrain-wgpu [--steps <n>])" >&2
+      exit 1
+      ;;
+  esac
+done
+
+data_root="${GOMOKU_DATA:-./data}"
+
+exec nettrain \
+  --data "$data_root/synthetic/v0" \
+  --out "$data_root/check-points/v0" \
+  --config default \
+  --seed 42 \
+  --steps "$steps" \
+  --batch-size 1024 \
+  --eval-interval 1000 \
+  --device wgpu
