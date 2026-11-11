@@ -43,13 +43,20 @@ install`, then work in any working directory of your choice.
 ## Version consistency: one pin chain
 
 Two revisions must agree, or the GUI and the command-line tools could
-disagree about record formats. gmklabs stores exactly one pin:
-gomoku-gui's revision in [gmklabs.toml](gmklabs.toml). rust-ml's
-revision is *not* stored here — gomoku-gui already pins rust-ml by
-git revision in its own `Cargo.toml`, and `make install` reads the
-revision from the fetched checkout. The dependency direction stays
-one-way: gmklabs → gomoku-gui → rust-ml. Neither source repository
-needs any change.
+disagree about record formats. gmklabs stores exactly one required
+pin: gomoku-gui's revision in [gmklabs.toml](gmklabs.toml). rust-ml's
+revision is normally *not* stored here — gomoku-gui already pins
+rust-ml by git revision in its own `Cargo.toml`, and `make install`
+reads the revision from the fetched checkout. The dependency
+direction stays one-way: gmklabs → gomoku-gui → rust-ml. Neither
+source repository needs any change.
+
+One deliberate escape hatch exists: an optional `[rust-ml] rev` in
+[gmklabs.toml](gmklabs.toml) overrides the chain, for stretches where
+the GUI's pin trails a rust-ml feature the lab needs. The override is
+never silent: `make install` prints a warning and `make doctor`
+reports the drift for as long as it differs from the GUI pin. Remove
+the override once the GUI pin catches up.
 
 ## Usage
 
@@ -101,6 +108,9 @@ Initial version. Known limits:
 - Installed binaries do not yet embed their source revision, so
   `make doctor` checks presence and configuration but cannot yet prove
   rev equality. Version stamping in the binaries is planned.
+- `nettrain` is installable only at rust-ml revisions that contain
+  it; while the gomoku-gui pin trails those revisions, the `[rust-ml]`
+  override in [gmklabs.toml](gmklabs.toml) is required.
 - The GUI's lab configuration (the `.gomoku` directory) is specified
   by gomoku-gui's lab-explorer spec with a `./.gomoku` default; moving
   that default to `~/.gomoku` is a future gomoku-gui change, tracked

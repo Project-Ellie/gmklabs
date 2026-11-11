@@ -1,11 +1,23 @@
-# gmklabs — the single pinned revision in this repository.
+# gmklabs — the pins of the Gomoku laboratory.
 #
-# gomoku-gui is pinned here. rust-ml is deliberately NOT pinned here:
-# gomoku-gui depends on rust-ml through a git revision in its own
-# Cargo.toml, and the installer reads the revision from there at
-# install time. The GUI's cargo pin stays the single source of truth
-# for the rust-ml version, so the installed command-line tools can
-# never silently disagree with the GUI about record formats.
+# gomoku-gui is pinned here. rust-ml normally is NOT: gomoku-gui
+# depends on rust-ml through a git revision in its own Cargo.toml,
+# and the installer reads the revision from there at install time.
+# The GUI's cargo pin stays the single source of truth for the
+# rust-ml version, so the installed command-line tools can never
+# silently disagree with the GUI about record formats.
+#
+# The optional [rust-ml] rev below overrides that chain deliberately,
+# never silently.
 
 [gomoku-gui]
 rev = "470658171234abd982b8baf678d2c4a705de08b5"
+
+# Optional escape hatch: pin rust-ml independently of gomoku-gui's
+# Cargo.toml pin. Use when the GUI's pin trails a rust-ml feature the
+# lab needs. While an override is set and differs from the GUI pin,
+# `make install` prints a warning and `make doctor` reports the drift:
+# different rust-ml generations may disagree about record formats.
+# Remove the override once the GUI pin catches up.
+[rust-ml]
+# rev = "<sha>"

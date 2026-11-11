@@ -32,10 +32,14 @@ RUSTML_SRC := $(BUILD_DIR)/rust-ml
 GUI_URL    := https://github.com/Project-Ellie/gomoku-gui
 RUSTML_URL := https://github.com/Project-Ellie/rust-ml
 
-GUI_REV := $(shell sed -n 's/^rev *= *"\(.*\)"/\1/p' gmklabs.toml)
+GUI_REV := $(shell sed -n '/^\[gomoku-gui\]/,/^\[/s/^rev *= *"\(.*\)"/\1/p' gmklabs.toml)
+# Optional escape hatch: a rust-ml revision pinned in gmklabs.toml wins
+# over the revision that gomoku-gui's Cargo.toml pins.
+RUSTML_OVERRIDE := $(shell sed -n '/^\[rust-ml\]/,/^\[/s/^rev *= *"\(.*\)"/\1/p' gmklabs.toml)
 
-BINARIES := nettrain gomoku gomoku-gui
-SCRIPTS  := nettrain-wgpu
+BINARIES  := nettrain gomoku gomoku-gui
+SCRIPTS   := nettrain-wgpu
+DEMO_BINS := historydemo sessiondemo patterndemo
 
 .PHONY: install dirs fetch-gui fetch-rustml bins scripts config report \
         doctor uninstall clean
@@ -54,23 +58,32 @@ fetch-gui: dirs
 	@echo "gomoku-gui @ $(GUI_REV)"
 
 fetch-rustml: fetch-gui
-	@rev=$$(sed -n 's/^engine = { git = "[^"]*", rev = "\([^"]*\)".*/\1/p' $(GUI_SRC)/Cargo.toml); \
-	if [ -z "$$rev" ]; then \
+	@override='$(RUSTML_OVERRIDE)'; \
+	guipin=$$(sed -n 's/^engine = { git = "[^"]*", rev = "\([^"]*\)".*/\1/p' $(GUI_SRC)/Cargo.toml); \
+	if [ -z "$$guipin" ]; then \
 	  echo "error: cannot read rust-ml rev from $(GUI_SRC)/Cargo.toml" >&2; exit 1; \
+	fi; \
+	if [ -n "$$override" ]; then \
+	  rev=$$override; \
+	  echo "WARNING: rust-ml override $$rev"; \
+	  echo "         gomoku-gui pins $$guipin — tools and GUI are on"; \
+	  echo "         different rust-ml generations (format drift risk)"; \
+	else \
+	  rev=$$guipin; \
 	fi; \
 	if [ -d $(RUSTML_SRC)/.git ]; then \
 	  git -C $(RUSTML_SRC) fetch -q origin && git -C $(RUSTML_SRC) checkout -q $$rev; \
 	else \
 	  git clone -q $(RUSTML_URL) $(RUSTML_SRC) && git -C $(RUSTML_SRC) checkout -q $$rev; \
 	fi; \
-	echo "rust-ml @ $$rev (pinned by gomoku-gui/Cargo.toml)"
+	echo "rust-ml @ $$rev"
 
 bins: fetch-rustml
 	cargo install --locked --force --features gpu \
 	  --path $(RUSTML_SRC)/gomoku/crates/net --root $(PREFIX)
 	cargo install --locked --force \
 	  --path $(RUSTML_SRC)/gomoku/crates/cli --root $(PREFIX)
-	@rm -f $(BINDIR)/historydemo   # demo binary; not part of the lab
+	@rm -f $(addprefix $(BINDIR)/,$(DEMO_BINS))   # demos; not part of the lab
 	cargo install --locked --force \
 	  --path $(GUI_SRC)/crates/gui --root $(PREFIX)
 
@@ -107,6 +120,14 @@ doctor:
 	if python3 -m json.tool $(GOMOKU_HOME)/config.json >/dev/null 2>&1; then \
 	  echo "ok    config.json"; \
 	else echo "WARN  $(GOMOKU_HOME)/config.json missing or invalid"; fi; \
+	override='$(RUSTML_OVERRIDE)'; \
+	if [ -n "$$override" ] && [ -d $(GUI_SRC)/.git ]; then \
+	  guipin=$$(sed -n 's/^engine = { git = "[^"]*", rev = "\([^"]*\)".*/\1/p' $(GUI_SRC)/Cargo.toml); \
+	  if [ "$$override" != "$$guipin" ]; then \
+	    echo "WARN  rust-ml drift: override $$override"; \
+	    echo "      vs gomoku-gui pin  $$guipin"; \
+	  fi; \
+	fi; \
 	[ $$ok = 1 ]
 
 uninstall:
