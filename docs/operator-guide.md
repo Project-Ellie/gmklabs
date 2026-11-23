@@ -140,12 +140,13 @@ cargo run --release -p net --features gpu --bin nettrain -- \
 ./target/release/arenagen \
   --net <RUN_DIR> --openings <PATH> \
   --games 40 --sims 800 \
-  [--seed-base 0] [--record <DIR>]
+  [--seed-base 0] [--incumbent-net <RUN_DIR>] [--record <DIR>]
 ```
 
-- Candidate vs **baseline** (hardcoded incumbent), equal sims, no
-  exploration, resignation on. Games come in color-swapped pairs
-  sharing a seed — same opening, both colors.
+- Candidate vs an incumbent: the **baseline** by default, or the
+  reigning champion net with `--incumbent-net` (the round-2+ gate).
+  Equal sims, no exploration, resignation on. Games come in
+  color-swapped pairs sharing a seed — same opening, both colors.
 - Verdict: Wilson 95% interval on the candidate's score (win 1,
   draw ½). **Promoted iff the lower bound clears 0.5.** Promotions
   claimed from a few lucky games are exactly what this prevents.
@@ -153,6 +154,8 @@ cargo run --release -p net --features gpu --bin nettrain -- \
   candidate's color flips per game, so the pairing lives in each
   record's own evaluator string; the manifest's seat block stays empty
   rather than averaging into a lie.
+- Prefer the wrapper `scripts/arena.sh`, which supplies the openings
+  path and a timestamped record directory automatically.
 
 ---
 
@@ -183,12 +186,14 @@ Profiles:
 |-----------|----------|---------|
 | `balanced` | 800/800 · 400/400 · 1200/800 · 800/1200 · 1600/1600 | Baseline volume + strength grading (~20h for 17.5k games at 12 workers) |
 | `deep`     | 3000/3000 · 3000/4000 · 4000/4000 | Strong-search labels (the distillation experiment) |
-| `net`      | 60% asymmetric 400/800 + 800/400, 40% symmetric 400/400 + 800/800 | Champion self-play production (~60–100 games/h at 8–10 workers, measured) |
+| `net`      | 70% asymmetric 400/800 + 800/400, 30% symmetric 400/400 + 800/800 | Champion self-play production, night after night (~60–100 games/h at 8–10 workers, measured; defaults to 14) |
 
 - `net` requires `NET=<RUN_DIR>`; output defaults to
   `selfplay-v1-<run-name>` — generation-pinned, so a new champion
-  automatically writes a new directory.
-- Knobs (env): `WORKERS` (12; 8 for net), `CYCLES` (4 / 8 / 999),
+  automatically writes a new directory. Run it every night with the
+  same command: the corpus only grows (sealed chunks are skipped,
+  interrupted ones redone).
+- Knobs (env): `WORKERS` (12; 14 for net), `CYCLES` (4 / 8 / 999),
   `CHUNK_GAMES` (25; 10 for net), `OUT`, `OPENINGS`, `EXPORT_OUT`.
 - Seed ranges are disjoint per profile (offsets 0 / 100M / 200M).
 - Progress: `tail -f $OUT/progress.log`; per-worker detail in
@@ -282,13 +287,14 @@ cargo run --release -p net --features gpu --bin nettrain -- \
 ### C. Arena gate
 
 ```bash
-./target/release/arenagen \
-  --net ../data/check-points/<candidate-name> \
-  --openings ../data/openings/gomocup-2024-freestyle15.txt \
-  --games 40 --sims 800 \
-  --record ../data/corpora/arena-<candidate-name>
+scripts/arena.sh ../data/check-points/<candidate-name>
+# round 2 and beyond: gate against the reigning champion
+scripts/arena.sh ../data/check-points/<candidate-name> \
+  --incumbent-net ../data/check-points/<champion>
 ```
 
+40 games at 800 sims by default; the games are recorded to a
+timestamped `arena-<candidate>-vs-<incumbent>-<stamp>` corpus.
 Promoted iff the Wilson lower bound > 0.5. Browse the recorded arena
 corpus in the GUI to *see* where the candidate won and lost.
 
