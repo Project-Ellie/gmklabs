@@ -51,7 +51,7 @@ the arena decides promotion strictly on equal-sims strength.
 ```
 data/
   openings/
-    gomocup-2024-freestyle15.txt   # 200 tournament openings (seed → opening)
+    gomocup-2024-freestyle15.txt   # 12 complete Swap2 openings (seed → opening)
   corpora/
     <name>/                        # ONE selfplaygen run = one corpus
       manifest.json                # written LAST — presence means "sealed"
@@ -101,7 +101,11 @@ live in `target/release/`. **Flag syntax is always `--flag value`**
   manifest is written last, so a killed run leaves a directory that is
   visibly *not* a corpus.
 - One process plays seeds `seed-base .. seed-base+games-1`, each seed
-  drawing its opening from the tournament list. Parallel generation =
+  drawing its opening from the tournament list. Each opening is a
+  *complete* Swap2 description — the 3-stone offer plus the recorded
+  answer (take a color, or add two stones) from real Gomocup play —
+  executed through the engine's Swap2 typestate; the players start
+  thinking at ply 3 or 5. Parallel generation =
   several processes over disjoint seed ranges (the scripts do this).
 - Exploration: temperature 1.0 + Dirichlet noise for the first
   `--exploration-plies` plies (default 10), then deterministic.
