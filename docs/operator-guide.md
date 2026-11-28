@@ -118,11 +118,14 @@ live in `target/release/`. **Flag syntax is always `--flag value`**
   --out <DIR> [--mix-seed 42]
 ```
 
-Mixes corpora (weights scale each source's contribution; default 1.0),
-rebuilds every training board from the move list, and writes
-`policy`/`value` targets: π = normalized visits (one-hot on the proved
-move when TSS ended the search), z = game outcome from the
-side-to-move's perspective. Deterministic given the same inputs.
+Mixes corpora (each source's samples enter once; the integer weight
+sets how many *consecutive* samples a source contributes per
+round-robin turn — an ordering control, NOT oversampling; to oversample
+a corpus N-fold, pass it N times), rebuilds every training board from
+the move list, and writes `policy`/`value` targets: π = normalized
+visits (one-hot on the proved move when TSS ended the search), z = game
+outcome from the side-to-move's perspective. Deterministic given the
+same inputs.
 
 ### nettrain — the training authority
 
@@ -314,14 +317,17 @@ Stop whenever; restart with the same command. Snapshot weekly; train
 round N+1 on a weighted mix:
 
 ```bash
-./target/release/selfplayexport \
-  --corpus ../data/corpora/selfplay-v1-<champion>-samples-<stamp>:3 \
-  --corpus ../data/corpora/mass-2026-11-20-samples:1 \
-  --out ../data/corpora/round2-samples
+# Round-2 recipe (2026-11-28): v2 clean oversampled 4x by repetition,
+# v1 cautionary tales x1, baseline mass x1 — 606k samples total.
+args=()
+for d in ../data/corpora/selfplay-v2-*/; do
+  [ -f "$d/manifest.json" ] && args+=(--corpus "${d%/}" --corpus "${d%/}" --corpus "${d%/}" --corpus "${d%/}")
+done
+for d in ../data/corpora/selfplay-v1-*/ ../data/corpora/mass-2026-11-20/*/; do
+  [ -f "$d/manifest.json" ] && args+=(--corpus "${d%/}")
+done
+./target/release/selfplayexport "${args[@]}" --out ../data/corpora/round2-samples-<date>
 ```
-
-(Weight the fresh self-play higher — its labels come from the stronger
-teacher — but keep baseline volume for coverage.)
 
 ### E. Inspect anything
 
